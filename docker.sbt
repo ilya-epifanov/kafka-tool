@@ -17,6 +17,6 @@
 enablePlugins(JavaAppPackaging)
 enablePlugins(DockerPlugin)
 
-packageName in Docker := packageName.value
+packageName in Docker := s"smartislav/${packageName.value}"
 version in Docker := version.value
 dockerBaseImage := "openjdk:8"

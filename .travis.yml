@@ -1,0 +1,18 @@
+language: scala
+sudo: required
+
+services:
+  - docker
+
+scala:
+   - 2.12.4
+
+jdk:
+  - oraclejdk7
+  - oraclejdk8
+
+script: travis_retry sbt ++$TRAVIS_SCALA_VERSION clean test
+
+after_success:
+  - docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+  - sbt docker:publish

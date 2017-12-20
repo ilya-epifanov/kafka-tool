@@ -20,7 +20,7 @@ val circeVersion = "0.8.0"
 val log4jVersion = "2.10.0"
 
 libraryDependencies ++= Seq(
-  "org.apache.kafka" %% "kafka" % "1.0.0",
+  "org.apache.kafka" % "kafka-clients" % "1.0.0",
   "com.typesafe" % "config" % "1.3.2",
   "com.iheart" %% "ficus" % "1.4.3",
   "org.rogach" %% "scallop" % "3.1.1",

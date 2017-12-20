@@ -19,4 +19,4 @@ enablePlugins(DockerPlugin)
 
 packageName in Docker := s"smartislav/${packageName.value}"
 version in Docker := version.value
-dockerBaseImage := "openjdk:8"
+dockerBaseImage := "openjdk:8-jre-slim"

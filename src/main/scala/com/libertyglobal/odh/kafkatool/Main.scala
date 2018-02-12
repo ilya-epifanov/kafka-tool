@@ -1,5 +1,5 @@
 /*
- *    Copyright 2017 Ilya Epifanov
+ *    Copyright 2018 Ilya Epifanov
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -22,7 +22,9 @@ import com.typesafe.scalalogging.StrictLogging
 import io.circe.generic.auto._
 import io.circe.syntax._
 import net.ceedubs.ficus.Ficus._
-import org.apache.kafka.clients.admin.{AdminClient, DescribeClusterOptions, ListTopicsOptions}
+import org.apache.kafka.clients.admin.{AdminClient, Config, ConfigEntry, DescribeClusterOptions, ListTopicsOptions, NewTopic, TopicListing}
+import org.apache.kafka.common.config.ConfigResource
+import org.apache.kafka.common.config.ConfigResource.Type
 import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.core.config.Configurator
 
@@ -96,13 +98,13 @@ object Main extends StrictLogging {
       }
     }
 
-    val ret = for {
+    val ret: Map[String, TargetTopicReplicationInfo] = (for {
       (topic, currentReplication) <- currentReplications
-      rf <- config.topicSettings(topic).rf
+      rf = config.topicSettings(topic).rf
       repairedTopic = processTopic(currentReplication.partitions, rf) if repairedTopic.nonEmpty
     } yield {
       topic -> TargetTopicReplicationInfo(repairedTopic)
-    }
+    }).toMap
 
     logger.info("Distribution of partitions across brokers after suggested repair")
     for ((broker, partitions) <- allPartitionsPerBroker.distribution.toSeq.sorted) {
@@ -112,36 +114,12 @@ object Main extends StrictLogging {
     ret
   }
 
-  def main(args: Array[String]): Unit = {
-    val opts = new Opts(args)
-
-    if (opts.verbose.getOrElse(false)) {
-      Configurator.setLevel("com.libertyglobal", Level.DEBUG)
-    }
-
-    val op = opts.subcommand match {
-      case Some(c) if c == opts.cleanup => new CleanupOp()
-      case Some(c) if c == opts.repair => new RepairOp()
-      case _ =>
-        opts.printHelp()
-        sys.exit(1)
-    }
-    val config = ConfigFactory.load().as[KafkaToolConfig]("kafka-tool")
-
-    val kafka = AdminClient.create(config.kafka.asJava)
-
-    lazy val describeClusterResult = kafka.describeCluster(new DescribeClusterOptions())
-    lazy val clusterId = describeClusterResult.clusterId().get()
-    lazy val controllerNode = describeClusterResult.controller().get()
-    lazy val nodes = describeClusterResult.nodes().get().asScala.toSeq
-
-    logger.debug(s"Cluster id: $clusterId")
-    logger.debug(s"Controller node: ${controllerNode.idString()}")
-    logger.debug(s"Nodes: ${sortedToString(nodes.map(_.id()))}")
-
-    val topics = kafka.listTopics(new ListTopicsOptions().listInternal(true)).listings().get().asScala
-
-    val topicDescriptions = kafka.describeTopics(topics.map(_.name()).asJavaCollection).all().get().asScala.toMap
+  def reassignCommand(kafka: AdminClient,
+                      config: KafkaToolConfig,
+                      op: PartitionReassignmentOp,
+                      out: Option[String]): Unit = {
+    val topics = listTopics(kafka)
+    val topicDescriptions = describeTopics(kafka, topics)
 
     val currentReplication = topicDescriptions.mapValues { td =>
       val partitions: Map[Int, PartitionReplicationInfo] = td.partitions().asScala.map { partitionInfo =>
@@ -165,7 +143,7 @@ object Main extends StrictLogging {
 
     val reassignmentJson = formatAsReassignmentJson(targetReplication)
 
-    opts.out.toOption match {
+    out match {
       case Some(outputFilename) =>
         File(outputFilename).writeAll(reassignmentJson)
         logger.info(s"Written reassignment plan to `$outputFilename`")
@@ -175,12 +153,151 @@ object Main extends StrictLogging {
     }
   }
 
+  def updateCommand(kafka: AdminClient,
+                    config: KafkaToolConfig,
+                    alterIfNeeded: Boolean,
+                    dryRun: Boolean
+                   ): Unit = {
+    val topics = listTopics(kafka)
+    val topicNames: Set[String] = topics.map(_.name())(collection.breakOut)
+    val topicConfigs: Map[String, Map[String, String]] = describeTopicConfigs(kafka, topicNames).mapValues({ config =>
+      config.entries().asScala.collect({
+        case e if !e.isDefault && !e.isReadOnly => e.name() -> e.value().trim
+      })(collection.breakOut)
+    })
+
+    val topicsToCreate = config.topicSettings.filterKeys(!topicNames.contains(_))
+    val topicsToAlter = config
+      .topicSettings
+      .filterKeys(topicNames.contains)
+      .filter({ case (topic, settings) =>
+        settings.config.mapValues(_.trim) != topicConfigs(topic)
+      })
+
+    logger.info("Creating topics:")
+    for ((topic, _) <- topicsToCreate) {
+      logger.info(topic)
+    }
+    logger.info("")
+
+    if (!dryRun) {
+      kafka.createTopics(topicsToCreate.map({ case (topic, settings) =>
+        new NewTopic(topic, settings.partitions, settings.rf.toShort)
+      }).asJavaCollection).all().get()
+    }
+
+    val topicsToAlterConfigs = topicsToCreate ++ (if (alterIfNeeded) topicsToAlter else Map.empty)
+
+    logger.info("Configuring topics:")
+    for ((topic, settings) <- topicsToAlterConfigs) {
+      val targetConfig = settings.config.mapValues(_.trim)
+      val existingConfig: Map[String, String] = topicConfigs.getOrElse(topic, Map.empty)
+
+      val changedSettings = targetConfig
+      val deletedSettings = existingConfig.filterKeys(!targetConfig.contains(_))
+
+      if (changedSettings.nonEmpty || deletedSettings.nonEmpty) {
+        logger.info(topic)
+
+        for ((name, value) <- changedSettings) {
+          existingConfig.get(name) match {
+            case Some(existingValue) =>
+              logger.info(f"  - $name: $existingValue")
+            case _ =>
+          }
+          logger.info(s"  + $name: $value")
+        }
+
+        for ((name, existingValue) <- deletedSettings) {
+          logger.info(s"  - $name: $existingValue")
+        }
+      }
+    }
+    logger.info("")
+
+    if (!dryRun) {
+      kafka.alterConfigs(topicsToAlterConfigs.map({ case (topic, settings) =>
+        new ConfigResource(Type.TOPIC, topic) -> new Config(
+          settings.config.map({ case (k, v) =>
+            new ConfigEntry(k.trim, v.trim)
+          }).asJavaCollection
+        )
+      }).asJava).all().get()
+    }
+  }
+
+  def listSuperfluousTopicsCommand(kafka: AdminClient,
+                                   config: KafkaToolConfig): Unit = {
+    val existingTopics = listTopics(kafka).filterNot(_.isInternal).map(_.name()).toSet
+    val configuredTopics = config.topicSettings.keySet
+
+    for (topic <- (existingTopics -- configuredTopics).toSeq.sorted) {
+      logger.warn(s"$topic")
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    val opts = new Opts(args)
+
+    if (opts.verbose.getOrElse(false)) {
+      Configurator.setLevel("com.libertyglobal", Level.DEBUG)
+    }
+
+    val config = ConfigFactory.load().as[KafkaToolConfig]("kafka-tool")
+
+    val kafka = AdminClient.create(config.kafka.asJava)
+
+    lazy val describeClusterResult = kafka.describeCluster(new DescribeClusterOptions())
+    lazy val clusterId = describeClusterResult.clusterId().get()
+    lazy val controllerNode = describeClusterResult.controller().get()
+    lazy val nodes = describeClusterResult.nodes().get().asScala.toSeq
+
+    logger.debug(s"Cluster id: $clusterId")
+    logger.debug(s"Controller node: ${controllerNode.idString()}")
+    logger.debug(s"Nodes: ${sortedToString(nodes.map(_.id()))}")
+
+    opts.subcommand match {
+      case Some(c) if c == opts.reassign =>
+        val op = c.subcommand match {
+          case Some(c2) if c2 == opts.reassign.cleanup => new CleanupOp()
+          case Some(c2) if c2 == opts.reassign.repair => new RepairOp()
+        }
+        reassignCommand(kafka, config, op, opts.reassign.out.toOption)
+      case Some(c) if c == opts.update =>
+        updateCommand(kafka, config, opts.update.alterIfNeeded.getOrElse(false), opts.update.dryRun.getOrElse(false))
+      case Some(c) if c == opts.listSuperfluousTopics =>
+        listSuperfluousTopicsCommand(kafka, config)
+      case _ =>
+        opts.printHelp()
+        sys.exit(1)
+    }
+  }
+
   def formatAsReassignmentJson(topicsToBeRepaired: Map[String, TargetTopicReplicationInfo]): String = {
     Reassignment(partitions = topicsToBeRepaired.flatMap({ case (topic, partitions) =>
       for (p <- partitions.partitions) yield {
         PartitionReassignment(topic, p._1, p._2.targetReplicas.toSeq)
       }
     }).toSeq).asJson.spaces2
+  }
+
+  private def listTopics(kafka: AdminClient): Seq[TopicListing] = {
+    kafka.listTopics(new ListTopicsOptions().listInternal(true)).listings().get().asScala.toSeq
+  }
+
+  private def describeTopics(kafka: AdminClient, topics: Iterable[TopicListing]) = {
+    kafka.describeTopics(topics.map(_.name()).asJavaCollection).all().get().asScala.toMap
+  }
+
+  private def describeTopicConfigs(kafka: AdminClient, topics: Iterable[String]): Map[String, Config] = {
+    kafka
+      .describeConfigs(topics.map(t => new ConfigResource(Type.TOPIC, t)).asJavaCollection)
+      .all()
+      .get()
+      .asScala
+      .map({ case (resource, config) =>
+        resource.name() -> config
+      })
   }
 }
 

@@ -1,5 +1,5 @@
 /*
- *    Copyright 2017 Ilya Epifanov
+ *    Copyright 2018 Ilya Epifanov
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -19,14 +19,27 @@ import org.rogach.scallop.{ScallopConf, Subcommand}
 
 //noinspection TypeAnnotation
 class Opts(arguments: Seq[String]) extends ScallopConf(arguments) {
-  val out = opt[String]("output", descr = "output filename (stdout if not specified)")
   val verbose = opt[Boolean]("verbose", descr = "Make output more verbose")
 
-  val repair = new Subcommand("repair")
-  addSubcommand(repair)
+  val reassign = new Subcommand("reassign") {
+    val out = opt[String]("output", descr = "output filename (stdout if not specified)")
 
-  val cleanup = new Subcommand("cleanup")
-  addSubcommand(cleanup)
+    val repair = new Subcommand("repair")
+    addSubcommand(repair)
+
+    val cleanup = new Subcommand("cleanup")
+    addSubcommand(cleanup)
+  }
+  addSubcommand(reassign)
+
+  val update = new Subcommand("update") {
+    val alterIfNeeded = opt[Boolean]("alter-if-needed", descr = "Alter topics if needed (will only create topics by default)")
+    val dryRun = opt[Boolean]("dry-run", 'n', descr = "Don't change anything")
+  }
+  addSubcommand(update)
+
+  val listSuperfluousTopics = new Subcommand("list-superfluous-topics")
+  addSubcommand(listSuperfluousTopics)
 
   verify()
 }

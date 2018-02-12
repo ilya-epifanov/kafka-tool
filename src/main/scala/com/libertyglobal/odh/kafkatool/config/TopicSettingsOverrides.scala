@@ -20,18 +20,27 @@ import net.ceedubs.ficus.readers.ValueReader
 
 import scala.collection.JavaConverters._
 
-case class TopicSettings(
-                          rf: Int,
-                          partitions: Int,
-                          config: Map[String, String]
-                        )
-
-
-object TopicSettings {
-  implicit val valueReader: ValueReader[TopicSettings] = ValueReader.relative { config =>
+case class TopicSettingsOverrides(
+                                   rf: Option[Int],
+                                   partitions: Option[Int],
+                                   config: Map[String, String]
+                                 ) {
+  def withDefault(default: TopicSettings): TopicSettings = {
     TopicSettings(
-      config.as[Int]("rf"),
-      config.as[Int]("partitions"),
+      rf = rf getOrElse default.rf,
+      partitions = partitions getOrElse default.partitions,
+      config = default.config ++ config
+    )
+  }
+}
+
+object TopicSettingsOverrides {
+  val empty = TopicSettingsOverrides(None, None, Map.empty)
+
+  implicit val valueReader: ValueReader[TopicSettingsOverrides] = ValueReader.relative { config =>
+    TopicSettingsOverrides(
+      config.getAs[Int]("rf"),
+      config.getAs[Int]("partitions"),
       if (config.hasPath("config")) {
         val c = config.getConfig("config")
         c.entrySet().asScala.map(_.getKey).map(k => k.replace("\"", "") -> c.as[String](k))(collection.breakOut)

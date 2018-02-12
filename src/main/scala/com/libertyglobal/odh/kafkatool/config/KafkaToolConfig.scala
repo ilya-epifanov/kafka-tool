@@ -1,5 +1,5 @@
 /*
- *    Copyright 2017 Ilya Epifanov
+ *    Copyright 2018 Ilya Epifanov
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ object KafkaToolConfig {
   implicit val valueReader: ValueReader[KafkaToolConfig] = ValueReader.relative { config =>
     val kafka = config.as[Map[String, ConfigValue]]("kafka").mapValues(_.unwrapped())
     val defaultTopicSettings = config.as[TopicSettings]("default-topic-settings")
-    val overrides = config.as[Map[String, TopicSettings]]("topic-settings")
+    val overrides = config.as[Map[String, TopicSettingsOverrides]]("topic-settings")
     val brokerIds = config.as[Seq[Int]]("broker-ids").toSet
 
     val topicSettings = overrides

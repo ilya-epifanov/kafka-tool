@@ -41,10 +41,7 @@ class Opts(arguments: Seq[String]) extends ScallopConf(arguments) {
   val listSuperfluousTopics = new Subcommand("list-superfluous-topics")
   addSubcommand(listSuperfluousTopics)
 
-  //acl --add --allow-users Bob --allow-user Alice --allow-hosts Host1,Host2 --operations Read,Write --topic Test-topic
-  //acl --remove --allow-users Bob --allow-user Alice --allow-hosts Host1,Host2 --operations Read,Write --topic Test-topic
-  //acl --list
-  //acl --remove-all
+
   val acl = new Subcommand("acl") {
     val acl_add = new Subcommand("add") {
       val allow_user = opt[String]("allow-users", descr = "List of user")
@@ -52,6 +49,7 @@ class Opts(arguments: Seq[String]) extends ScallopConf(arguments) {
       val operations = opt[String]("operations", descr = "Operations to be enabled")
       val topic = opt[String]("topic", descr = "topic")
     }
+    addSubcommand(acl_add)
 
     val acl_remove = new Subcommand("remove") {
       val allow_user = opt[String]("allow-users", descr = "List of user")
@@ -59,17 +57,15 @@ class Opts(arguments: Seq[String]) extends ScallopConf(arguments) {
       val operations = opt[String]("operations", descr = "Operations to be enabled")
       val topic = opt[String]("topic", descr = "topic")
     }
+    addSubcommand(acl_remove)
 
     val acl_list = new Subcommand("list")
-    val acl_remove_all = new Subcommand("remove-all")
-
-    addSubcommand(acl_add)
-    addSubcommand(acl_remove)
     addSubcommand(acl_list)
+
+    val acl_remove_all = new Subcommand("remove-all")
     addSubcommand(acl_remove_all)
 
   }
-
   addSubcommand(acl)
 
   verify()

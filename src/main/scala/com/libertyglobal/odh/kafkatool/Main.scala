@@ -15,6 +15,7 @@
 
 package com.libertyglobal.odh.kafkatool
 
+import com.libertyglobal.odh.kafkatool.aclmanager.ACLManager
 import com.libertyglobal.odh.kafkatool.config.KafkaToolConfig
 import com.libertyglobal.odh.kafkatool.partitionreassignment.{CleanupOp, PartitionReassignmentOp, PartitionsPerBroker, RepairOp}
 import com.typesafe.config.ConfigFactory
@@ -245,6 +246,7 @@ object Main extends StrictLogging {
 
     val config = ConfigFactory.load().as[KafkaToolConfig]("kafka-tool")
 
+    println(config.toString())
     val kafka = AdminClient.create(config.kafka.asJava)
 
     lazy val describeClusterResult = kafka.describeCluster(new DescribeClusterOptions())
@@ -267,6 +269,15 @@ object Main extends StrictLogging {
         updateCommand(kafka, config, opts.update.alterIfNeeded.getOrElse(false), opts.update.dryRun.getOrElse(false))
       case Some(c) if c == opts.listSuperfluousTopics =>
         listSuperfluousTopicsCommand(kafka, config)
+      case Some(c) if c == opts.acl.acl_add =>
+        new ACLManager().print(config)
+      case Some(c) if c == opts.acl.acl_remove =>
+        new ACLManager().print(config)
+      case Some(c) if c == opts.acl.acl_list =>
+        new ACLManager().print(config)
+      case Some(c) if c == opts.acl.acl_remove_all =>
+        new ACLManager().print(config)
+
       case _ =>
         opts.printHelp()
         sys.exit(1)

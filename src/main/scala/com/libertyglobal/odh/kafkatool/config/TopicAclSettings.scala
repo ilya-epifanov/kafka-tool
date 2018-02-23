@@ -3,13 +3,9 @@ package com.libertyglobal.odh.kafkatool.config
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ValueReader
 
-case class TopicAclSettings(
-                             principal: String,
-                             name: String,
-                             hosts: Array[String],
-                             operations: Array[String],
-                             permissions: Array[String]
-                        )
+case class TopicAclSettings(principal: String, name: String,
+                       hosts: Array[String], operations: Array[String],
+                       permissions: Array[String])
 
 
 object TopicAclSettings {
@@ -22,5 +18,7 @@ object TopicAclSettings {
       config.as[Array[String]]("permissions")
     )
   }
+
+
 
 }

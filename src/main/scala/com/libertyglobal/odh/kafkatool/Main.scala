@@ -16,6 +16,9 @@
 package com.libertyglobal.odh.kafkatool
 
 
+import java.util
+import java.util.Collection
+
 import com.libertyglobal.odh.kafkatool.aclmanager.ACLManager
 import com.libertyglobal.odh.kafkatool.config.{KafkaToolConfig, TopicAclSettings, TopicSettings}
 import com.libertyglobal.odh.kafkatool.partitionreassignment.{CleanupOp, PartitionReassignmentOp, PartitionsPerBroker, RepairOp}
@@ -25,9 +28,10 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import net.ceedubs.ficus.Ficus._
 import org.apache.kafka.clients.admin.{AdminClient, Config, ConfigEntry, DescribeClusterOptions, ListTopicsOptions, NewTopic, TopicListing}
-import org.apache.kafka.common.acl.AclBinding
+import org.apache.kafka.common.acl.{AclBinding, AclBindingFilter}
 import org.apache.kafka.common.config.ConfigResource
 import org.apache.kafka.common.config.ConfigResource.Type
+import org.apache.kafka.common.resource.ResourceFilter
 import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.core.config.Configurator
 
@@ -272,27 +276,14 @@ object Main extends StrictLogging {
       case Some(c) if c == opts.listSuperfluousTopics =>
         listSuperfluousTopicsCommand(kafka, config)
       case Some(c) if c == opts.acl =>
-        def extractAclSettings(settings: KafkaToolConfig): Map[String,Array[TopicAclSettings]] = {
-          for(t <- settings.topicSettings.filter( p => p._2.acl.size > 0))
-            yield (t._1, t._2.acl)
-        }
-
-        def extractAclBindings(topic: String, aclSettings: Array[TopicAclSettings]) : Array[AclBinding] = {
-          {
-            for (acl <- aclSettings)
-              yield new ACLManager().toAclBindings(topic, acl)
-          }.flatten
-
-        }
-
-        val aclSettings = extractAclSettings(config)
-
-        val aclBindings = {for( (topic: String, settings: Array[TopicAclSettings]) <- aclSettings)
-                          yield extractAclBindings(topic, settings)}.flatten
-
-
-        aclBindings.foreach( f => println(f.toString))
-
+        val acls = listAcls(kafka)
+        acls foreach (f => println(f))
+        acls foreach (acl => deleteAcls(kafka, acl))
+        Thread.sleep(5000)
+        listAcls(kafka) foreach (f => println(f))
+        applyAclBindings(kafka, getAclBindings(config))
+        Thread.sleep(5000)
+        listAcls(kafka) foreach (f => println(f))
 
       case _ =>
         opts.printHelp()
@@ -325,6 +316,47 @@ object Main extends StrictLogging {
       .map({ case (resource, config) =>
         resource.name() -> config
       })
+  }
+
+  private def getAclBindings(config: KafkaToolConfig): Array[AclBinding] = {
+    def extractAclSettings(settings: KafkaToolConfig): Map[String,Array[TopicAclSettings]] = {
+      for(t <- settings.topicSettings.filter( p => p._2.acl.size > 0))
+        yield (t._1, t._2.acl)
+    }
+
+    def extractAclBindings(topic: String, aclSettings: Array[TopicAclSettings]) : Array[AclBinding] = {
+      {
+        for (acl <- aclSettings)
+          yield new ACLManager().toAclBindings(topic, acl)
+      }.flatten
+
+    }
+
+    val aclSettings = extractAclSettings(config)
+
+    {
+      for ((topic: String, settings: Array[TopicAclSettings]) <- aclSettings)
+        yield extractAclBindings(topic, settings)
+    } .flatten
+      .toArray
+
+  }
+
+  private def applyAclBindings(kafka: AdminClient, acls: Array[AclBinding]): Boolean = {
+    val results = kafka.createAcls(acls.toList.asJavaCollection)
+    results.all().isDone
+  }
+
+  private def listAcls(kafka: AdminClient): Array[AclBinding] = {
+    val res = kafka.describeAcls(AclBindingFilter.ANY)
+    res.values().get().asScala.toArray
+  }
+
+  private def deleteAcls(kafka: AdminClient, aclBinding: AclBinding): Boolean = {
+    println("REMOVING ACL :", aclBinding)
+    val res = kafka.deleteAcls(util.Arrays.asList(aclBinding.toFilter))
+    res.all().get().asScala foreach (f => println(f))
+    true
   }
 }
 

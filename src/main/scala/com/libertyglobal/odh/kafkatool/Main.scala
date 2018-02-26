@@ -15,8 +15,9 @@
 
 package com.libertyglobal.odh.kafkatool
 
+
 import com.libertyglobal.odh.kafkatool.aclmanager.ACLManager
-import com.libertyglobal.odh.kafkatool.config.KafkaToolConfig
+import com.libertyglobal.odh.kafkatool.config.{KafkaToolConfig, TopicAclSettings, TopicSettings}
 import com.libertyglobal.odh.kafkatool.partitionreassignment.{CleanupOp, PartitionReassignmentOp, PartitionsPerBroker, RepairOp}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
@@ -24,6 +25,7 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import net.ceedubs.ficus.Ficus._
 import org.apache.kafka.clients.admin.{AdminClient, Config, ConfigEntry, DescribeClusterOptions, ListTopicsOptions, NewTopic, TopicListing}
+import org.apache.kafka.common.acl.AclBinding
 import org.apache.kafka.common.config.ConfigResource
 import org.apache.kafka.common.config.ConfigResource.Type
 import org.apache.logging.log4j.Level
@@ -244,9 +246,9 @@ object Main extends StrictLogging {
       Configurator.setLevel("com.libertyglobal", Level.DEBUG)
     }
 
+    println(opts.args.mkString(","))
     val config = ConfigFactory.load().as[KafkaToolConfig]("kafka-tool")
 
-    println(config.toString())
     val kafka = AdminClient.create(config.kafka.asJava)
 
     lazy val describeClusterResult = kafka.describeCluster(new DescribeClusterOptions())
@@ -269,14 +271,28 @@ object Main extends StrictLogging {
         updateCommand(kafka, config, opts.update.alterIfNeeded.getOrElse(false), opts.update.dryRun.getOrElse(false))
       case Some(c) if c == opts.listSuperfluousTopics =>
         listSuperfluousTopicsCommand(kafka, config)
-      case Some(c) if c == opts.acl.acl_add =>
-        new ACLManager().print(config)
-      case Some(c) if c == opts.acl.acl_remove =>
-        new ACLManager().print(config)
-      case Some(c) if c == opts.acl.acl_list =>
-        new ACLManager().print(config)
-      case Some(c) if c == opts.acl.acl_remove_all =>
-        new ACLManager().print(config)
+      case Some(c) if c == opts.acl =>
+        def extractAclSettings(settings: KafkaToolConfig): Map[String,Array[TopicAclSettings]] = {
+          for(t <- settings.topicSettings.filter( p => p._2.acl.size > 0))
+            yield (t._1, t._2.acl)
+        }
+
+        def extractAclBindings(topic: String, aclSettings: Array[TopicAclSettings]) : Array[AclBinding] = {
+          {
+            for (acl <- aclSettings)
+              yield new ACLManager().toAclBindings(topic, acl)
+          }.flatten
+
+        }
+
+        val aclSettings = extractAclSettings(config)
+
+        val aclBindings = {for( (topic: String, settings: Array[TopicAclSettings]) <- aclSettings)
+                          yield extractAclBindings(topic, settings)}.flatten
+
+
+        aclBindings.foreach( f => println(f.toString))
+
 
       case _ =>
         opts.printHelp()

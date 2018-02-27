@@ -307,47 +307,6 @@ object Main extends StrictLogging {
         resource.name() -> config
       })
   }
-
-  //  private def getAclBindings(config: KafkaToolConfig): Array[AclBinding] = {
-  //    def extractAclSettings(settings: KafkaToolConfig): Map[String,Array[TopicAclSettings]] = {
-  //      for(t <- settings.topicSettings.filter( p => p._2.acl.size > 0))
-  //        yield (t._1, t._2.acl)
-  //    }
-  //
-  //    def extractAclBindings(topic: String, aclSettings: Array[TopicAclSettings]) : Array[AclBinding] = {
-  //      {
-  //        for (acl <- aclSettings)
-  //          yield new ACLManager().toAclBindings(topic, acl)
-  //      }.flatten
-  //
-  //    }
-  //
-  //    val aclSettings = extractAclSettings(config)
-  //
-  //    {
-  //      for ((topic: String, settings: Array[TopicAclSettings]) <- aclSettings)
-  //        yield extractAclBindings(topic, settings)
-  //    } .flatten
-  //      .toArray
-  //
-  //  }
-  //
-  //  private def applyAclBindings(kafka: AdminClient, acls: Array[AclBinding]): Boolean = {
-  //    val results = kafka.createAcls(acls.toList.asJavaCollection)
-  //    results.all().isDone
-  //  }
-  //
-  //  private def listAcls(kafka: AdminClient): Array[AclBinding] = {
-  //    val res = kafka.describeAcls(AclBindingFilter.ANY)
-  //    res.values().get().asScala.toArray
-  //  }
-  //
-  //  private def deleteAcls(kafka: AdminClient, aclBinding: AclBinding): Boolean = {
-  //    println("REMOVING ACL :", aclBinding)
-  //    val res = kafka.deleteAcls(util.Arrays.asList(aclBinding.toFilter))
-  //    res.all().get().asScala foreach (f => println(f))
-  //    true
-  //  }
 }
 
 case class TopicReplicationInfo(partitions: Map[PartitionId, PartitionReplicationInfo])

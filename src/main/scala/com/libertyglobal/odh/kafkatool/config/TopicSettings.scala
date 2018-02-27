@@ -23,7 +23,7 @@ import scala.collection.JavaConverters._
 case class TopicSettings(
                           rf: Int,
                           partitions: Int,
-                          acl: Array[TopicAclSettings],
+                          accessControlEntries: Array[TopicAclEntry],
                           config: Map[String, String]
                         )
 
@@ -33,7 +33,11 @@ object TopicSettings {
     TopicSettings(
       config.as[Int]("rf"),
       config.as[Int]("partitions"),
-      config.as[Array[TopicAclSettings]]("acl"),
+      if (config.hasPath("accessControlEntries")) {
+        config.as[Array[TopicAclEntry]]("accessControlEntries")
+      } else {
+        Array.empty
+      },
       if (config.hasPath("config")) {
         val c = config.getConfig("config")
         c.entrySet().asScala.map(_.getKey).map(k => k.replace("\"", "") -> c.as[String](k))(collection.breakOut)

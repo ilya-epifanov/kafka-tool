@@ -1,24 +1,25 @@
 package com.libertyglobal.odh.kafkatool.aclmanager
-import com.libertyglobal.odh.kafkatool.config.{KafkaToolConfig, TopicAclSettings, TopicSettings}
-import org.apache.kafka.common.acl.{AccessControlEntry, AclBinding, AclOperation, AclPermissionType}
-import org.apache.kafka.common.resource.{Resource, ResourceType}
-import org.apache.kafka.common.security.auth.KafkaPrincipal
 
-class ACLManager {
+import org.apache.kafka.clients.admin.AdminClient
+import org.apache.kafka.common.acl.{AclBinding, AclBindingFilter}
 
+object ACLManager {
 
+  def add(kafka: AdminClient, acls: Array[AclBinding]): Boolean = {
+    false
+  }
 
-  def toAclBindings(topic: String, config: TopicAclSettings): Array[AclBinding] = {
+  def list(kafka: AdminClient): Array[AclBinding] = {
+    Array.empty
+  }
 
-    def topicToResource(topic: String): Resource = new Resource(ResourceType.TOPIC, topic)
-
-    for (ace <- config.toAccessControlEntries())
-      yield new AclBinding(topicToResource(topic), ace)
+  def delete(kafka: AdminClient, aclFilters: Array[AclBindingFilter] ): Array[AclBinding] = {
+    Array.empty
 
   }
 
-
-  def print(config: KafkaToolConfig): Unit = {
-
+  def deleteAll(kafka: AdminClient): Array[AclBinding] = {
+    delete(kafka, Array() :+ AclBindingFilter.ANY)
   }
+
 }

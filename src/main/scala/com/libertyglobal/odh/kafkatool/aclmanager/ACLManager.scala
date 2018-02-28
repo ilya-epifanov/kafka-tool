@@ -16,7 +16,7 @@ object ACLManager {
       }
       true
     } catch {
-      case ee: ExecutionException => return false
+      case ee: ExecutionException => false
     }
   }
 

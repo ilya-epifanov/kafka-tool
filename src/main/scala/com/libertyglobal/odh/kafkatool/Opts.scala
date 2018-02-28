@@ -42,31 +42,13 @@ class Opts(arguments: Seq[String]) extends ScallopConf(arguments) {
   addSubcommand(listSuperfluousTopics)
 
 
-  val acl = new Subcommand("acl") {
-    val acl_add = new Subcommand("add") {
-      val allow_user = opt[String]("allow-users", descr = "List of user")
-      val allow_hosts= opt[String]("allow-hosts", descr = "List of host")
-      val operations = opt[String]("operations", descr = "Operations to be enabled")
-      val topic = opt[String]("topic", descr = "topic")
-    }
-    addSubcommand(acl_add)
-
-    val acl_remove = new Subcommand("remove") {
-      val allow_user = opt[String]("allow-users", descr = "List of user")
-      val allow_hosts= opt[String]("allow-hosts", descr = "List of host")
-      val operations = opt[String]("operations", descr = "Operations to be enabled")
-      val topic = opt[String]("topic", descr = "topic")
-    }
-    addSubcommand(acl_remove)
-
-    val acl_list = new Subcommand("list")
-    addSubcommand(acl_list)
-
-    val acl_remove_all = new Subcommand("remove-all")
-    addSubcommand(acl_remove_all)
-
+  val acl_run = new Subcommand("acl-run") {
+    val dryRun = opt[Boolean]("dry-run", 'n', descr = "Don't change anything")
   }
-  addSubcommand(acl)
+  addSubcommand(acl_run)
+
+  val acl_list = new Subcommand("acl-list")
+  addSubcommand(acl_list)
 
   verify()
 }

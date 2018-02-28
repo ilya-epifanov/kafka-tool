@@ -26,21 +26,21 @@ case class KafkaToolConfig(
                             topicSettings: Map[String, TopicSettings],
                             brokerIds: Set[Int]
                           ) {
-  def getAcls() : Array[AclBinding] = {
+  def getAcls() : Seq[AclBinding] = {
 
     def buildResource(topic: String): Resource = new Resource(ResourceType.TOPIC,topic)
 
-    def buildAclBindings(topic: String, aclEntries: Array[TopicAclEntry]): Array[AclBinding] = {
+    def buildAclBindings(topic: String, aclEntries: Seq[TopicAclEntry]): Seq[AclBinding] = {
       aclEntries
         .flatMap(aclEntry => aclEntry.toAccessControlEntries())
         .map(ACE => new AclBinding(buildResource(topic), ACE))
 
     }
     topicSettings
-      .filter(topicSetting => (topicSetting._2.accessControlEntries.length > 0))
+      .filter(topicSetting => topicSetting._2.accessControlEntries.nonEmpty)
       .map( topicSetting => (topicSetting._1, topicSetting._2.accessControlEntries ))
       .flatMap( entry => buildAclBindings(entry._1, entry._2))
-      .toArray
+      .toSeq
   }
 }
 

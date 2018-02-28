@@ -18,7 +18,8 @@ package com.libertyglobal.odh.kafkatool
 
 import java.util
 
-import com.libertyglobal.odh.kafkatool.config.{KafkaToolConfig}
+import com.libertyglobal.odh.kafkatool.aclmanager.ACLManager
+import com.libertyglobal.odh.kafkatool.config.KafkaToolConfig
 import com.libertyglobal.odh.kafkatool.partitionreassignment.{CleanupOp, PartitionReassignmentOp, PartitionsPerBroker, RepairOp}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
@@ -247,7 +248,6 @@ object Main extends StrictLogging {
       Configurator.setLevel("com.libertyglobal", Level.DEBUG)
     }
 
-    println(opts.args.mkString(","))
     val config = ConfigFactory.load().as[KafkaToolConfig]("kafka-tool")
 
     val kafka = AdminClient.create(config.kafka.asJava)
@@ -272,14 +272,30 @@ object Main extends StrictLogging {
         updateCommand(kafka, config, opts.update.alterIfNeeded.getOrElse(false), opts.update.dryRun.getOrElse(false))
       case Some(c) if c == opts.listSuperfluousTopics =>
         listSuperfluousTopicsCommand(kafka, config)
-      case Some(c) if c == opts.acl =>
-        config.getAcls().foreach(e => println(e))
+      case Some(c) if c == opts.acl_list =>
+        listAcls(kafka)
+      case Some(c) if c == opts.acl_run =>
+        applyAcls(kafka, config)
 
       case _ =>
         opts.printHelp()
         sys.exit(1)
     }
   }
+
+  private def listAcls(kafka: AdminClient): Unit = {
+    ACLManager.list(kafka).foreach(acl => println(acl.toString))
+  }
+
+  private def applyAcls(kafka: AdminClient, config: KafkaToolConfig): Unit = {
+    ACLManager.deleteAll(kafka).foreach(acl => logger.warn("Deleted ACL " + acl.toString))
+    if(ACLManager.add(kafka, config.getAcls())){
+      config.getAcls().foreach((acl) => logger.info("Added ACL " + acl.toString))
+    } else {
+      logger.error("Unknown error while applying ACLs")
+    }
+  }
+
 
   def formatAsReassignmentJson(topicsToBeRepaired: Map[String, TargetTopicReplicationInfo]): String = {
     Reassignment(partitions = topicsToBeRepaired.flatMap({ case (topic, partitions) =>

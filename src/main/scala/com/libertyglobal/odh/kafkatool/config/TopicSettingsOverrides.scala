@@ -23,7 +23,7 @@ import scala.collection.JavaConverters._
 case class TopicSettingsOverrides(
                                    rf: Option[Int],
                                    partitions: Option[Int],
-                                   accessControlEntries: Option[Array[TopicAclEntry]],
+                                   accessControlEntries: Option[Seq[TopicAclEntry]],
                                    config: Map[String, String]
                                  ) {
   def withDefault(default: TopicSettings): TopicSettings = {
@@ -43,7 +43,7 @@ object TopicSettingsOverrides {
     TopicSettingsOverrides(
       config.getAs[Int]("rf"),
       config.getAs[Int]("partitions"),
-      config.getAs[Array[TopicAclEntry]]("accessControlEntries"),
+      config.getAs[Seq[TopicAclEntry]]("access-control-entries"),
       if (config.hasPath("config")) {
         val c = config.getConfig("config")
         c.entrySet().asScala.map(_.getKey).map(k => k.replace("\"", "") -> c.as[String](k))(collection.breakOut)

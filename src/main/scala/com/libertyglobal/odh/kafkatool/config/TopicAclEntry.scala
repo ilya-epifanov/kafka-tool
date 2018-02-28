@@ -1,13 +1,11 @@
 package com.libertyglobal.odh.kafkatool.config
 
-import net.ceedubs.ficus.Ficus._
-import net.ceedubs.ficus.readers.ValueReader
 import org.apache.kafka.common.acl.{AccessControlEntry, AclOperation, AclPermissionType}
 import org.apache.kafka.common.security.auth.KafkaPrincipal
 
 case class TopicAclEntry(principal: String, name: String,
-                    hosts: Array[String], operations: Array[String],
-                    permissions: Array[String]) {
+                         hosts: Array[String], operations: Array[String],
+                         permissions: Array[String]) {
 
   def toAccessControlEntries(): Array[AccessControlEntry] = {
 
@@ -25,7 +23,6 @@ case class TopicAclEntry(principal: String, name: String,
         case "DESCRIBE_CONFIGS" => AclOperation.DESCRIBE_CONFIGS
         case "ALTER_CONFIGS" => AclOperation.ALTER_CONFIGS
         case "IDEMPOTENT_WRITE" => AclOperation.IDEMPOTENT_WRITE
-        case _ => AclOperation.UNKNOWN
       }
     }
 
@@ -34,7 +31,6 @@ case class TopicAclEntry(principal: String, name: String,
         case "ALLOW" => AclPermissionType.ALLOW
         case "DENY" => AclPermissionType.DENY
         case "ANY" => AclPermissionType.ANY
-        case _ => AclPermissionType.UNKNOWN
       }
     }
 
@@ -47,16 +43,4 @@ case class TopicAclEntry(principal: String, name: String,
   }
 
 
-}
-
-object TopicAclEntry {
-  implicit val valueReader: ValueReader[TopicAclEntry] = ValueReader.relative { config =>
-    TopicAclEntry(
-      config.as[String]("principal"),
-      config.as[String]("name"),
-      config.as[Array[String]]("hosts"),
-      config.as[Array[String]]("operations"),
-      config.as[Array[String]]("permissions")
-    )
-  }
 }

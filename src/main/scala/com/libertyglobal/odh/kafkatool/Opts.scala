@@ -42,13 +42,13 @@ class Opts(arguments: Seq[String]) extends ScallopConf(arguments) {
   addSubcommand(listSuperfluousTopics)
 
 
-  val acl_run = new Subcommand("acl-run") {
+  val aclUpdate = new Subcommand("update-acls") {
     val dryRun = opt[Boolean]("dry-run", 'n', descr = "Don't change anything")
   }
-  addSubcommand(acl_run)
+  addSubcommand(aclUpdate)
 
-  val acl_list = new Subcommand("acl-list")
-  addSubcommand(acl_list)
+  val aclList = new Subcommand("list-acls")
+  addSubcommand(aclList)
 
   verify()
 }

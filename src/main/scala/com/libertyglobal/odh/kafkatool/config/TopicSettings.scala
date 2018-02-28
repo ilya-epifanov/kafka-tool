@@ -33,7 +33,7 @@ object TopicSettings {
     TopicSettings(
       config.as[Int]("rf"),
       config.as[Int]("partitions"),
-      if (config.hasPath("access-control-entries")) config.as[Seq[TopicAclEntry]]("access-control-entries") else Seq.empty,
+      config.getOrElse[Seq[TopicAclEntry]]("access-control-entries", Seq.empty),
       if (config.hasPath("config")) {
         val c = config.getConfig("config")
         c.entrySet().asScala.map(_.getKey).map(k => k.replace("\"", "") -> c.as[String](k))(collection.breakOut)

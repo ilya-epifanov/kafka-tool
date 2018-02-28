@@ -272,7 +272,7 @@ object Main extends StrictLogging {
       case Some(c) if c == opts.aclList =>
         listAcls(kafka)
       case Some(c) if c == opts.aclUpdate =>
-        applyAcls(kafka, config)
+        applyAcls(kafka, config, opts.update.dryRun.getOrElse(false))
 
       case _ =>
         opts.printHelp()

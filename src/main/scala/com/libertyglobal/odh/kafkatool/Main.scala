@@ -269,9 +269,9 @@ object Main extends StrictLogging {
         updateCommand(kafka, config, opts.update.alterIfNeeded.getOrElse(false), opts.update.dryRun.getOrElse(false))
       case Some(c) if c == opts.listSuperfluousTopics =>
         listSuperfluousTopicsCommand(kafka, config)
-      case Some(c) if c == opts.acl_list =>
+      case Some(c) if c == opts.aclList =>
         listAcls(kafka)
-      case Some(c) if c == opts.acl_run =>
+      case Some(c) if c == opts.aclUpdate =>
         applyAcls(kafka, config)
 
       case _ =>

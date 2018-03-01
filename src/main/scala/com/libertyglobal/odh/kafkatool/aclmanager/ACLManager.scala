@@ -6,7 +6,6 @@ import org.apache.kafka.common.acl.{AclBinding, AclBindingFilter}
 import scala.collection.JavaConverters._
 
 object ACLManager {
-
   def add(kafka: AdminClient, acls: Seq[AclBinding]): Unit = {
     kafka.createAcls(acls.asJavaCollection).all().get()
   }
@@ -28,5 +27,4 @@ object ACLManager {
     val res = kafka.deleteAcls(aclFilters.asJavaCollection)
     res.all().get().asScala.toSeq
   }
-
 }

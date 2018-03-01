@@ -27,7 +27,6 @@ case class KafkaToolConfig(
                             brokerIds: Set[Int]
                           ) {
   def getAcls() : Seq[AclBinding] = {
-
     def buildResource(topic: String): Resource = new Resource(ResourceType.TOPIC,topic)
 
     def buildAclBindings(topic: String, aclEntries: Seq[TopicAclEntry]): Seq[AclBinding] = {
@@ -45,7 +44,6 @@ case class KafkaToolConfig(
 }
 
 object KafkaToolConfig {
-
   implicit val valueReader: ValueReader[KafkaToolConfig] = ValueReader.relative { config =>
     val kafka = config.as[Map[String, ConfigValue]]("kafka").mapValues(_.unwrapped())
     val defaultTopicSettings = config.as[TopicSettings]("default-topic-settings")

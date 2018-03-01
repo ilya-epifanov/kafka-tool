@@ -10,7 +10,6 @@ case class TopicAclEntry(principal: String, name: String,
                     permissions: Array[String]) {
 
   def toAccessControlEntries(): Array[AccessControlEntry] = {
-
     def strToOperation(op: String): AclOperation = {
       op.toUpperCase match {
         case "ANY" => AclOperation.ANY
@@ -32,19 +31,17 @@ case class TopicAclEntry(principal: String, name: String,
       p.toUpperCase match {
         case "ALLOW" => AclPermissionType.ALLOW
         case "DENY" => AclPermissionType.DENY
-        case "ANY" => AclPermissionType.ANY
       }
     }
 
     val kafkaPrincipal = new KafkaPrincipal(principal, name)
 
-    for (host <- hosts;
-         operation <- operations;
-         permission <- permissions)
-      yield new AccessControlEntry(kafkaPrincipal.toString, host, strToOperation(operation), strToPermission(permission))
+    for (host <- hosts; operation <- operations; permission <- permissions) {
+      yield new AccessControlEntry( kafkaPrincipal.toString,
+                                    host, strToOperation(operation),
+                                    strToPermission(permission))
+    }
   }
-
-
 }
 
 object TopicAclEntry {

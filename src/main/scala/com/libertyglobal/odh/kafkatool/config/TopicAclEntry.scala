@@ -36,11 +36,14 @@ case class TopicAclEntry(principal: String, name: String,
 
     val kafkaPrincipal = new KafkaPrincipal(principal, name)
 
-    for (host <- hosts; operation <- operations; permission <- permissions) {
-      yield new AccessControlEntry( kafkaPrincipal.toString,
+    for {
+      host <- hosts;
+      operation <- operations;
+      permission <- permissions
+    } yield new AccessControlEntry( kafkaPrincipal.toString,
                                     host, strToOperation(operation),
                                     strToPermission(permission))
-    }
+
   }
 }
 

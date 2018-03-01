@@ -2,4 +2,3 @@ target/
 sbt/*.jar
 sbt/*.jar.part
 
-\.idea/

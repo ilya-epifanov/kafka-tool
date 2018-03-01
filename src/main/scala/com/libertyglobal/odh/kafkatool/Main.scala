@@ -258,16 +258,16 @@ object Main extends StrictLogging {
     logger.debug(s"Controller node: ${controllerNode.idString()}")
     logger.debug(s"Nodes: ${sortedToString(nodes.map(_.id()))}")
 
-    opts.subcommand match {
-      case Some(c) if c == opts.reassign =>
-        val op = c.subcommand match {
-          case Some(c2) if c2 == opts.reassign.cleanup => new CleanupOp()
-          case Some(c2) if c2 == opts.reassign.repair => new RepairOp()
+    opts.subcommands match {
+      case Seq(c1, c2) if c1 == opts.reassign =>
+        val op = c2 match {
+          case c2 if c2 == opts.reassign.cleanup => new CleanupOp()
+          case c2 if c2 == opts.reassign.repair => new RepairOp()
         }
         reassignCommand(kafka, config, op, opts.reassign.out.toOption)
-      case Some(c) if c == opts.update =>
+      case Seq(c) if c == opts.update =>
         updateCommand(kafka, config, opts.update.alterIfNeeded.getOrElse(false), opts.update.dryRun.getOrElse(false))
-      case Some(c) if c == opts.listSuperfluousTopics =>
+      case Seq(c) if c == opts.listSuperfluousTopics =>
         listSuperfluousTopicsCommand(kafka, config)
       case Some(c) if c == opts.aclList =>
         listAcls(kafka)

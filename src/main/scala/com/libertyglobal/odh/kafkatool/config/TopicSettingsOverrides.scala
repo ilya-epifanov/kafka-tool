@@ -23,24 +23,27 @@ import scala.collection.JavaConverters._
 case class TopicSettingsOverrides(
                                    rf: Option[Int],
                                    partitions: Option[Int],
+                                   accessControlEntries: Option[Seq[TopicAclEntry]],
                                    config: Map[String, String]
                                  ) {
   def withDefault(default: TopicSettings): TopicSettings = {
     TopicSettings(
       rf = rf getOrElse default.rf,
       partitions = partitions getOrElse default.partitions,
+      accessControlEntries = accessControlEntries getOrElse default.accessControlEntries,
       config = default.config ++ config
     )
   }
 }
 
 object TopicSettingsOverrides {
-  val empty = TopicSettingsOverrides(None, None, Map.empty)
+  val empty = TopicSettingsOverrides(None, None, None, Map.empty)
 
   implicit val valueReader: ValueReader[TopicSettingsOverrides] = ValueReader.relative { config =>
     TopicSettingsOverrides(
       config.getAs[Int]("rf"),
       config.getAs[Int]("partitions"),
+      config.getAs[Seq[TopicAclEntry]]("access-control-entries"),
       if (config.hasPath("config")) {
         val c = config.getConfig("config")
         c.entrySet().asScala.map(_.getKey).map(k => k.replace("\"", "") -> c.as[String](k))(collection.breakOut)

@@ -18,15 +18,32 @@ package com.libertyglobal.odh.kafkatool.config
 import com.typesafe.config.ConfigValue
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ValueReader
+import org.apache.kafka.common.acl.AclBinding
+import org.apache.kafka.common.resource.{Resource, ResourceType}
 
 case class KafkaToolConfig(
                             kafka: Map[String, AnyRef],
                             topicSettings: Map[String, TopicSettings],
                             brokerIds: Set[Int]
-                          )
+                          ) {
+  def getAcls() : Seq[AclBinding] = {
+    def buildResource(topic: String): Resource = new Resource(ResourceType.TOPIC, topic)
+
+    def buildAclBindings(topic: String, aclEntries: Seq[TopicAclEntry]): Seq[AclBinding] = {
+      aclEntries
+        .flatMap(aclEntry => aclEntry.toAccessControlEntries())
+        .map(ACE => new AclBinding(buildResource(topic), ACE))
+    }
+
+    topicSettings
+      .filter(topicSetting => topicSetting._2.accessControlEntries.nonEmpty)
+      .map( topicSetting => (topicSetting._1, topicSetting._2.accessControlEntries ))
+      .flatMap( entry => buildAclBindings(entry._1, entry._2))
+      .toSeq
+  }
+}
 
 object KafkaToolConfig {
-
   implicit val valueReader: ValueReader[KafkaToolConfig] = ValueReader.relative { config =>
     val kafka = config.as[Map[String, ConfigValue]]("kafka").mapValues(_.unwrapped())
     val defaultTopicSettings = config.as[TopicSettings]("default-topic-settings")

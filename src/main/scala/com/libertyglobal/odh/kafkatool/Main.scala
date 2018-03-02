@@ -15,6 +15,8 @@
 
 package com.libertyglobal.odh.kafkatool
 
+
+import com.libertyglobal.odh.kafkatool.aclmanager.ACLManager
 import com.libertyglobal.odh.kafkatool.config.KafkaToolConfig
 import com.libertyglobal.odh.kafkatool.partitionreassignment.{CleanupOp, PartitionReassignmentOp, PartitionsPerBroker, RepairOp}
 import com.typesafe.config.ConfigFactory
@@ -267,11 +269,42 @@ object Main extends StrictLogging {
         updateCommand(kafka, config, opts.update.alterIfNeeded.getOrElse(false), opts.update.dryRun.getOrElse(false))
       case Seq(c) if c == opts.listSuperfluousTopics =>
         listSuperfluousTopicsCommand(kafka, config)
+      case Seq(c) if c == opts.listAcls =>
+        listAcls(kafka)
+      case Seq(c) if c == opts.updateAcls =>
+        updateAcls(kafka, config, opts.update.dryRun.getOrElse(false))
+
       case _ =>
         opts.printHelp()
         sys.exit(1)
     }
   }
+
+  private def listAcls(kafka: AdminClient): Unit = {
+    ACLManager.list(kafka).foreach(acl => logger.info(acl.toString))
+  }
+
+  private def updateAcls(kafka: AdminClient, config: KafkaToolConfig, dryRun: Boolean = false): Unit = {
+    val acls = config.getAcls()
+    if (dryRun) {
+      for (acl <- ACLManager.list(kafka)) {
+        logger.info(s"To-be deleted ACL ${acl}")
+      }
+      for (acl <- acls) {
+        logger.info(s"To-be added ACL ${acl}")
+      }
+    } else {
+      val deletedAcls = ACLManager.deleteAll(kafka)
+      for(acl <- deletedAcls) {
+        logger.warn(s"Deleted ACL ${acl}")
+      }
+      ACLManager.add(kafka, acls)
+      for (acl <- acls) {
+        logger.info(s"Added ACL ${acl}")
+      }
+    }
+  }
+
 
   def formatAsReassignmentJson(topicsToBeRepaired: Map[String, TargetTopicReplicationInfo]): String = {
     Reassignment(partitions = topicsToBeRepaired.flatMap({ case (topic, partitions) =>

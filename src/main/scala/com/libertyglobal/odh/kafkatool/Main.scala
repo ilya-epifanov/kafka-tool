@@ -272,7 +272,7 @@ object Main extends StrictLogging {
       case Seq(c) if c == opts.listAcls =>
         listAcls(kafka)
       case Seq(c) if c == opts.updateAcls =>
-        applyAcls(kafka, config, opts.update.dryRun.getOrElse(false))
+        updateAcls(kafka, config, opts.update.dryRun.getOrElse(false))
 
       case _ =>
         opts.printHelp()
@@ -284,15 +284,24 @@ object Main extends StrictLogging {
     ACLManager.list(kafka).foreach(acl => logger.info(acl.toString))
   }
 
-  private def applyAcls(kafka: AdminClient, config: KafkaToolConfig, dryRun: Boolean = false): Unit = {
+  private def updateAcls(kafka: AdminClient, config: KafkaToolConfig, dryRun: Boolean = false): Unit = {
     val acls = config.getAcls()
     if (dryRun) {
-      ACLManager.list(kafka).foreach(acl => logger.info("To-be deleted ACL " + acl.toString))
-      acls.foreach((acl) => logger.info("To-be added ACL " + acl.toString))
+      for (acl <- ACLManager.list(kafka)) {
+        logger.info(s"To-be deleted ACL ${acl}")
+      }
+      for (acl <- acls) {
+        logger.info(s"To-be added ACL ${acl}")
+      }
     } else {
-      ACLManager.deleteAll(kafka).foreach(acl => logger.warn("Deleted ACL " + acl.toString))
+      val deletedAcls = ACLManager.deleteAll(kafka)
+      for(acl <- deletedAcls) {
+        logger.warn(s"Deleted ACL ${acl}")
+      }
       ACLManager.add(kafka, acls)
-      acls.foreach((acl) => logger.info("Added ACL " + acl.toString))
+      for (acl <- acls) {
+        logger.info(s"Added ACL ${acl}")
+      }
     }
   }
 

@@ -27,14 +27,14 @@ case class KafkaToolConfig(
                             brokerIds: Set[Int]
                           ) {
   def getAcls() : Seq[AclBinding] = {
-    def buildResource(topic: String): Resource = new Resource(ResourceType.TOPIC,topic)
+    def buildResource(topic: String): Resource = new Resource(ResourceType.TOPIC, topic)
 
     def buildAclBindings(topic: String, aclEntries: Seq[TopicAclEntry]): Seq[AclBinding] = {
       aclEntries
         .flatMap(aclEntry => aclEntry.toAccessControlEntries())
         .map(ACE => new AclBinding(buildResource(topic), ACE))
-
     }
+
     topicSettings
       .filter(topicSetting => topicSetting._2.accessControlEntries.nonEmpty)
       .map( topicSetting => (topicSetting._1, topicSetting._2.accessControlEntries ))

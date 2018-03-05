@@ -55,3 +55,21 @@ Update per-topic configuration (but not no. of partitions or replication factor)
 kafka-tool update --alter-if-needed
 ```
 
+### update-acls
+
+Update per-topic ACL configuration
+
+```bash
+kafka-tool update-acls [--dry-run]
+```
+
+### list-acls
+
+List ACLS configured on Kafka
+
+```bash
+kafka-tool list-acls
+```
+
+
+

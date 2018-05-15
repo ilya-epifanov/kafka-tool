@@ -48,7 +48,6 @@ object Main extends StrictLogging {
     val ret = currentReplications
       .flatMap(_.effectiveReplicas)
       .groupBy(identity)
-      .filterKeys(config.brokerIds.contains)
       .mapValues(_.size)
 
     val missingKeys = config.brokerIds -- ret.keySet
@@ -62,7 +61,7 @@ object Main extends StrictLogging {
                    ): Map[String, TargetTopicReplicationInfo] = {
     var allPartitionsPerBroker = overallPartitionDistributionPerBroker(config, currentReplications.values)
 
-    logger.info("Distribution of partitions across brokers before suggested repair")
+    logger.info("Distribution of partitions across brokers before suggested reassignment")
     for ((broker, partitions) <- allPartitionsPerBroker.distribution.toSeq.sorted) {
       logger.info(f"Broker $broker%2d: $partitions%4d")
     }
@@ -71,7 +70,10 @@ object Main extends StrictLogging {
       var partitionsPerBroker = partitionDistributionPerBroker(config, partitions.values)
 
       def processPartition(currentReplicationInfo: PartitionReplicationInfo): TargetPartitionReplicationInfo = {
-        var currentReplication = TargetPartitionReplicationInfo(currentReplicationInfo.effectiveReplicas, currentReplicationInfo.effectiveReplicas)
+        var currentReplication = TargetPartitionReplicationInfo(
+          currentReplicationInfo.replicas,
+          currentReplicationInfo.effectiveReplicas
+        )
 
         assert(currentReplication.targetReplicas.forall(config.brokerIds.contains))
 
@@ -95,7 +97,7 @@ object Main extends StrictLogging {
       }
 
       for {
-        (partition, partitionInfo) <- partitions if partitionInfo.effectiveReplicas.size != rf
+        (partition, partitionInfo) <- partitions if partitionInfo.replicas.size != rf || partitionInfo.effectiveReplicas.size != rf
         reassignmentPlan = processPartition(partitionInfo) if !reassignmentPlan.isTrivial
       } yield {
         partition -> reassignmentPlan
@@ -110,7 +112,7 @@ object Main extends StrictLogging {
       topic -> TargetTopicReplicationInfo(repairedTopic)
     }).toMap
 
-    logger.info("Distribution of partitions across brokers after suggested repair")
+    logger.info("Distribution of partitions across brokers after suggested reassignment")
     for ((broker, partitions) <- allPartitionsPerBroker.distribution.toSeq.sorted) {
       logger.info(f"Broker $broker%2d: $partitions%4d")
     }
@@ -140,7 +142,7 @@ object Main extends StrictLogging {
         logger.debug(s"Required changes for topic $topic")
 
         for ((partition, changes) <- partitions.partitions) {
-          logger.debug(s"Partition $partition: ${sortedToString(changes.targetReplicas)} <- ${sortedToString(changes.effectiveReplicas)}")
+          logger.debug(s"Partition $partition: ${sortedToString(changes.targetReplicas)} <- ${sortedToString(changes.initialReplicas)}")
         }
       }
     }
@@ -342,14 +344,14 @@ case class TargetTopicReplicationInfo(partitions: Map[PartitionId, TargetPartiti
 
 case class PartitionReplicationInfo(replicas: Set[BrokerId], effectiveReplicas: Set[BrokerId])
 
-case class TargetPartitionReplicationInfo(effectiveReplicas: Set[BrokerId], targetReplicas: Set[BrokerId]) {
+case class TargetPartitionReplicationInfo(initialReplicas: Set[BrokerId], targetReplicas: Set[BrokerId]) {
   def +(broker: BrokerId): TargetPartitionReplicationInfo = {
-    TargetPartitionReplicationInfo(effectiveReplicas, targetReplicas + broker)
+    TargetPartitionReplicationInfo(initialReplicas, targetReplicas + broker)
   }
 
   def -(broker: BrokerId): TargetPartitionReplicationInfo = {
-    TargetPartitionReplicationInfo(effectiveReplicas, targetReplicas - broker)
+    TargetPartitionReplicationInfo(initialReplicas, targetReplicas - broker)
   }
 
-  def isTrivial: Boolean = effectiveReplicas == targetReplicas
+  def isTrivial: Boolean = initialReplicas == targetReplicas
 }

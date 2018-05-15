@@ -73,6 +73,8 @@ object Main extends StrictLogging {
       def processPartition(currentReplicationInfo: PartitionReplicationInfo): TargetPartitionReplicationInfo = {
         var currentReplication = TargetPartitionReplicationInfo(currentReplicationInfo.effectiveReplicas, currentReplicationInfo.effectiveReplicas)
 
+        assert(currentReplication.targetReplicas.forall(config.brokerIds.contains))
+
         for (_ <- currentReplication.targetReplicas.size.until(rf)) {
           op.addBroker(currentReplication, partitionsPerBroker, allPartitionsPerBroker).foreach { bestBroker =>
             partitionsPerBroker = partitionsPerBroker.inc(bestBroker)
@@ -93,7 +95,7 @@ object Main extends StrictLogging {
       }
 
       for {
-        (partition, partitionInfo) <- partitions if partitionInfo.effectiveReplicas.size != rf && partitionInfo.effectiveReplicas.nonEmpty
+        (partition, partitionInfo) <- partitions if partitionInfo.effectiveReplicas.size != rf
         reassignmentPlan = processPartition(partitionInfo) if !reassignmentPlan.isTrivial
       } yield {
         partition -> reassignmentPlan
